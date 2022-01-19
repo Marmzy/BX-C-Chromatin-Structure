@@ -6,6 +6,8 @@ import os
 import pandas as pd
 
 from collections import Counter
+from itertools import combinations
+from scipy import interpolate
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import train_test_split
 
@@ -32,9 +34,15 @@ def parseArgs():
     #Options for preprocessing
     parser.add_argument('--test', type=float, help='Ratio of samples that is included in the test dataset')
     parser.add_argument('--kfold', type=int, help='Number of cross-validation folds to split the training dataset into')
+    parser.add_argument('--learn', type=str, help='Prepare data for type of algorith: machine learning (numbers); deep learning (images)')
+    parser.add_argument('--interpol', type=str2bool, help='Interpolate missing values')
+    parser.add_argument('--perc', type=float, help='Minimum percentage of barcodes a cell needs to have to select it for the analysis')
 
     #Printing arguments to the command line
     args = parser.parse_args()
+
+    #Checking arguments
+    assert args.learn in ['machine', 'deep'], 'Please choose a valid argument: "machine" | "deep"'
 
     print('Called with args:')
     print(args)
@@ -42,49 +50,92 @@ def parseArgs():
     return args
 
 
-def pairwise_distances(df):
+def interpolate_coords(coords):
 
-    #Extracting the (x,y,z) coordinates from the cell dataframe
+    #Seperate the mising values from the actual coordinates
+    nan_idx = np.argwhere(np.isnan(coords))
+    coord_idx = np.argwhere(~np.isnan(coords))
+
+    #Interpolating the missing vales
+    f = interpolate.interp1d(coord_idx.squeeze(), coords[coord_idx].squeeze(), fill_value="extrapolate")
+
+    #Replacing the missing values with the interpolated ones
+    y_new = f(nan_idx)
+    coords[nan_idx] = y_new
+
+    return coords
+
+
+def pairwise_distances(df, missing, interpolate):
+
+    #Extracting the (x,y,z) coordinates from the cell dataframe and adding missing data
     xyz_data = [np.array([row["x"], row["y"], row["z"]]) for _, row in df.iterrows()]
+    for num in missing:
+        xyz_data.insert(num-1, np.array([np.nan, np.nan, np.nan]))
 
-    #Calculating paiwise distances between the coordinates of the barcodes
+    #Interpolate missing values by linear interpolation between adjacent coordinates
+    if interpolate:
+        x_coords = interpolate_coords(np.array([arr[0] for arr in xyz_data]))
+        y_coords = interpolate_coords(np.array([arr[1] for arr in xyz_data]))
+        z_coords = interpolate_coords(np.array([arr[2] for arr in xyz_data]))
+
+        xyz_data = [np.array([x, y, z]) for x, y, z in zip(x_coords, y_coords, z_coords)]
+
+    #Calculating pairwise distances between the coordinates of the barcodes
     xyz_product = itertools.product(xyz_data, repeat=2)
     pairwise_xyz = [np.linalg.norm(arr1-arr2) for arr1, arr2 in xyz_product]
-    pairwise_xyz = np.reshape(pairwise_xyz, (len(df), len(df))).T
+    pairwise_xyz = np.reshape(pairwise_xyz, (52, 52)).T
 
     return pairwise_xyz
 
 
-def dna_overview(df, verbose):
+def dna_overview(df, id, cut_off, learn, interpolate, verbose):
 
     #Initialising variables
     cell_dict = {}
 
-    if verbose:
-        print("\nCounting the number of barcodes for each cell...")
-
     #Looping over the cells in the dataset
     for cn in df["cellNumber"].unique():
-        cell_dict[cn] = len(df[df["cellNumber"] == cn])
+        mini_df = df[df["cellNumber"] == cn]
+        missing = list(set(range(1,53)) - set(mini_df["barcode"].values))
 
-        #Conmtinue data prerp only with cells that contain enough data
-        if len(df[df["cellNumber"] == cn]) >= 26:
+        #Continue data prep only with cells that contain enough barcode data
+        if len(mini_df) >= cut_off:
 
             #Calculate pairwise distances for all barcodes in the cell
-            pairwise_xyz = pairwise_distances(df[df["cellNumber"] == cn])
-            print(pairwise_xyz)
-            break
+            pairwise_xyz = pairwise_distances(mini_df, missing, interpolate)
 
-#    if verbose:
-#        for k in sorted(Counter(cell_dict.values()), reverse=True):
-#            print("{}: {}".format(k, Counter(cell_dict.values())[k]))
+            #Adding pairwise data to the dictionary
+            if learn == "deep":
+                cell_dict[id + "_" + str(cn)] = pairwise_xyz
+            else:
+                pairwise_xyz = np.tril(pairwise_xyz, k=-1)
+                cell_dict[id + "_" + str(cn)] = pairwise_xyz[np.nonzero(pairwise_xyz)]
 
-    #Removing cells for which the (x,y,z) coordinates could not be determined in less than 50% of barcodes
-#    if verbose:
-#        print("\nRemoving cells with less than 50% data...")
-#    filtered_cell_dict = {key: val for key, val in cell_dict.items() if val >= 26}
+    return cell_dict
 
 
+def rna_overview(df):
+
+    #Initialising variables
+    states = {}
+
+    #Looping over the three genes
+    for gene in ["Abd-A", "Abd-B", "Ubx"]:
+        cols = ["cellNumber", "embNumber", "segNumber"]
+        cols.extend([col for col in df.columns if gene in col])
+
+        #Getting the number of molecules per cell
+        mini_df = df[cols]
+        molecules = mini_df.iloc[:, 3:].sum(axis=1)
+
+        #Convert the number of molecules to expression states
+        states[gene] = list(molecules.where(molecules < 1, 1))
+
+    #Combining the data for all three genes
+    exp_states = [",".join([str(a), str(b), str(u)]) for a, b, u in zip(states["Abd-A"], states["Abd-B"], states["Ubx"])]
+
+    return np.array(exp_states)
 
 
 def main():
@@ -94,45 +145,73 @@ def main():
 
     #Initialsing variables
     path = os.path.dirname(os.getcwd())
+    cut_off = 52 * args.perc
+
+    if args.verbose:
+        if interpolate:
+            print("\nInterpolating missing coordinates...")
+            print("Calculating pairwise distances for cells that contain at least {} barcodes...".format(str(cut_off)))
+        else:
+            print("\nCalculating pairwise distances for cells that contain at least {} barcodes...".format(str(cut_off)))
+
+    #Reading the input DNA data as a dataframe
     dna1_df = pd.read_csv(os.path.join(path, args.output, "raw/dnaData_exp1.csv"))
     dna2_df = pd.read_csv(os.path.join(path, args.output, "raw/dnaData_exp2.csv"))
 
-    dna_overview(dna1_df, args.verbose)
-#    dna_overview(dna2_df, args.verbose)
+    #Getting pairwise distances
+    pairwise_dict1 = dna_overview(dna1_df, "A", cut_off, args.learn, args.interpol, args.verbose)
+    pairwise_dict2 = dna_overview(dna2_df, "B", cut_off, args.learn, args.interpol, args.verbose)
+
+    pairwise = {}
+    pairwise.update(pairwise_dict1)
+    pairwise.update(pairwise_dict2)
+
+    #Getting the cell IDs
+    cells1 = [int(cell.split("_")[1]) for cell in pairwise_dict1.keys()]
+    cells2 = [int(cell.split("_")[1]) for cell in pairwise_dict2.keys()]
 
 
+    #Reading the input RNA data as a dataframe
+    rna1_df = pd.read_csv(os.path.join(path, args.output, "raw/rnaData_exp1.csv"))
+    rna2_df = pd.read_csv(os.path.join(path, args.output, "raw/rnaData_exp2.csv"))
 
-#    image_list = []
-#    organelle_list = []
+    if args.verbose:
+        print("\nCalculating single cell expression states of Abd-A, Abd-B and Ubx...")
 
-    #Getting an overview of the input data
-#    if args.verbose:
-#        print(path)
-#        overview(os.path.join(path, args.output))
+    #Getting the expression states of the genes Abd-A, Abd-B and Ubx
+    exp_states1 = rna_overview(rna1_df)
+    exp_states2 = rna_overview(rna2_df)
 
-    #Looping over the subdirectories and getting the full paths to the images
-#    for subdir in sorted(glob.glob(os.path.join(path, "data/raw/*"))):
-#        image_list.append([img for img in glob.glob(subdir + "/*.[tT][iI][fF]")])
-#        organelle_list.append([os.path.basename(subdir) for img in glob.glob(subdir + "/*.[tT][iI][fF]")])
+    #Filtering the expression states to only get those of cells with sufficient barcodes
+    exp_states_filtered1 = exp_states1[cells1]
+    exp_states_filtered2 = exp_states2[cells2]
+    exp_states_combined = np.concatenate([exp_states_filtered1, exp_states_filtered2])
 
-    #Creating lists from the image paths
-#    X = flatten(image_list)
-#    y = flatten(organelle_list)
+    if args.verbose:
+        print("Cell expression states:")
+        for key in ["0,0,0", "0,0,1", "0,1,0", "1,0,0", "0,1,1", "1,0,1", "1,1,0", "1,1,1"]:
+            print("{}: {}".format(key, Counter(exp_states_combined)[key]))
+        print("Total: {}".format(str(exp_states_combined.shape[0])))
+
+    #Defining the explanatory and response data
+    if args.lear == "machine":
+        X = pd.DataFrame.from_dict(pairwise, orient="index", columns=[str(c1) + "_" + str(c2) for c1, c2 in combinations(list(range(1, 53)), 2)])
+    y = exp_states_combined
 
     #Splitting the data into (temporary) train and test
-#    if args.verbose:
-#        print("\nSplitting the dataset and into train ({}%) and test ({}%)...".format(str(int((1-float(args.test))*100)), str(int(float(args.test)*100))))
-#    X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=args.test, stratify=y)
+    if args.verbose:
+        print("\nSplitting the dataset and into train ({}%) and test ({}%)...".format(str(int((1-float(args.test))*100)), str(int(float(args.test)*100))))
+    X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=args.test, stratify=y)
 
     #Splitting the temporary training dataset into K training and validation datasets
-#    if args.verbose:
-#        print("\nSplitting the temporary training dataset into {} folds...".format(args.kfold))
+    if args.verbose:
+        print("\nSplitting the temporary training dataset into {} folds...".format(args.kfold))
 
-#    skf = StratifiedKFold(n_splits=args.kfold, shuffle=True)
+    skf = StratifiedKFold(n_splits=args.kfold, shuffle=True)
 
-#    for idx, (train_index, val_index) in enumerate(skf.split(X_temp, y_temp)):
-#        if args.verbose:
-#            print("TRAIN:", train_index, "VAL:", val_index)
+    for idx, (train_index, val_index) in enumerate(skf.split(X_temp, y_temp)):
+        if args.verbose:
+            print("TRAIN:", train_index, "VAL:", val_index)
 
 #        X_train, X_val = np.array(X_temp)[train_index], np.array(X_temp)[val_index]
 #        y_train, y_val = np.array(y_temp)[train_index], np.array(y_temp)[val_index]
