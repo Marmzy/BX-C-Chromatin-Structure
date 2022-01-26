@@ -170,7 +170,6 @@ def main():
     cells1 = [int(cell.split("_")[1]) for cell in pairwise_dict1.keys()]
     cells2 = [int(cell.split("_")[1]) for cell in pairwise_dict2.keys()]
 
-
     #Reading the input RNA data as a dataframe
     rna1_df = pd.read_csv(os.path.join(path, args.output, "raw/rnaData_exp1.csv"))
     rna2_df = pd.read_csv(os.path.join(path, args.output, "raw/rnaData_exp2.csv"))
@@ -194,8 +193,10 @@ def main():
         print("Total: {}".format(str(exp_states_combined.shape[0])))
 
     #Defining the explanatory and response data
-    if args.lear == "machine":
+    if args.learn == "machine":
         X = pd.DataFrame.from_dict(pairwise, orient="index", columns=[str(c1) + "_" + str(c2) for c1, c2 in combinations(list(range(1, 53)), 2)])
+    else:
+        X = list(pairwise.keys())
     y = exp_states_combined
 
     #Splitting the data into (temporary) train and test
@@ -209,28 +210,48 @@ def main():
 
     skf = StratifiedKFold(n_splits=args.kfold, shuffle=True)
 
+    #Looping over the k folds
     for idx, (train_index, val_index) in enumerate(skf.split(X_temp, y_temp)):
         if args.verbose:
             print("TRAIN:", train_index, "VAL:", val_index)
 
-#        X_train, X_val = np.array(X_temp)[train_index], np.array(X_temp)[val_index]
-#        y_train, y_val = np.array(y_temp)[train_index], np.array(y_temp)[val_index]
+        X_train, X_val = np.array(X_temp)[train_index], np.array(X_temp)[val_index]
+        y_train, y_val = np.array(y_temp)[train_index], np.array(y_temp)[val_index]
 
         #Saving the train and validation datasets
-#        np.savetxt(os.path.join(path, "data", "train", "X_train_{}.txt".format(idx)), X_train, fmt='%s')
-#        np.savetxt(os.path.join(path, "data", "train", "y_train_{}.txt".format(idx)), y_train, fmt='%s')
+        if args.learn == "machine":
+            train_idx = [X_temp.index.values.tolist()[i] for i in train_index]
+            val_idx = [X_temp.index.values.tolist()[i] for i in val_index]
 
-#        np.savetxt(os.path.join(path, "data", "val", "X_val_{}.txt".format(idx)), X_val, fmt='%s')
-#        np.savetxt(os.path.join(path, "data", "val", "y_val_{}.txt".format(idx)), y_val, fmt='%s')
+            X_train = pd.DataFrame(X_train, index=train_idx, columns=X_temp.columns.values.tolist())
+            X_train.to_csv(os.path.join(path, "data", "train", "X_train_{}_{}.txt".format(args.learn, idx)))
+            np.savetxt(os.path.join(path, "data", "train", "y_train_{}_{}.txt".format(args.learn, idx)), y_train, fmt='%s')
+
+            X_val = pd.DataFrame(X_val, index=val_idx, columns=X_temp.columns.values.tolist())
+            X_val.to_csv(os.path.join(path, "data", "val", "X_val_{}_{}.txt".format(args.learn, idx)))
+            np.savetxt(os.path.join(path, "data", "val", "y_val_{}_{}.txt".format(args.learn, idx)), y_val, fmt='%s')
+        else:
+            X_train = {key: pairwise[key] for key in X_train}
+            np.save(os.path.join(path, "data", "train", "X_train_{}_{}.npy".format(args.learn, idx)), X_train)
+            np.savetxt(os.path.join(path, "data", "train", "y_train_{}_{}.npy".format(args.learn, idx)), y_train, fmt='%s')
+
+            X_val = {key: pairwise[key] for key in X_val}
+            np.save(os.path.join(path, "data", "val", "X_val_{}_{}.npy".format(args.learn, idx)), X_val)
+            np.savetxt(os.path.join(path, "data", "val", "y_val_{}_{}.npy".format(args.learn, idx)), y_val, fmt='%s')
 
     #Saving the test dataset
-#    np.savetxt(os.path.join(path, "data", "test", "X_test.txt"), X_test, fmt='%s')
-#    np.savetxt(os.path.join(path, "data", "test", "y_test.txt"), y_test, fmt='%s')
+    if args.learn == "machine":
+        X_test.to_csv(os.path.join(path, "data", "test", "X_test_{}.txt".format(args.learn)))
+        np.savetxt(os.path.join(path, "data", "test", "y_test_{}.txt".format(args.learn)), y_test, fmt='%s')
+    else:
+        X_test = {key: pairwise[key] for key in X_test}
+        np.save(os.path.join(path, "data", "test", "X_test_{}.npy".format(args.learn)), X_test)
+        np.savetxt(os.path.join(path, "data", "test", "y_test_{}.npy".format(args.learn)), y_test, fmt='%s')
 
-#    if args.verbose:
-#        print("\nSaved the training datasets to: {}".format(os.path.join(path, "data", "train")))
-#        print("Saved the validation datasets to: {}".format(os.path.join(path, "data", "val")))
-#        print("Saved the test dataset to: {}".format(os.path.join(path, "data", "test")))
+    if args.verbose:
+        print("\nSaved the training datasets to: {}".format(os.path.join(path, "data", "train")))
+        print("Saved the validation datasets to: {}".format(os.path.join(path, "data", "val")))
+        print("Saved the test dataset to: {}".format(os.path.join(path, "data", "test")))
 
 
 if __name__ == '__main__':

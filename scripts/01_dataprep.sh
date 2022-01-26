@@ -53,6 +53,9 @@ if [ ! -e ${OUT_DIR} ]; then
     fi
     mkdir -p ${PWD%/*}/${OUT_DIR}
     mkdir -p ${PWD%/*}/${OUT_DIR}/raw
+    mkdir -p ${PWD%/*}/${OUT_DIR}/train
+    mkdir -p ${PWD%/*}/${OUT_DIR}/val
+    mkdir -p ${PWD%/*}/${OUT_DIR}/test
 fi
 
 #Downloading the raw data if it hasn't been done so before
