@@ -14,7 +14,7 @@ function usage(){
     echo " -t, --test       Size of the test dataset"
     echo " -k, --kfold      Number of folds to split the training dataset into"
     echo " -l, --learn      Type of algorithm (machine | deep)"
-    echo " -i, --interpol   Interpolate missing value"
+    echo " -i, --interpol   Interpolate missing values"
     echo " -p, --perc       Minimum percentage of barcodes to select cells"
     echo ""
     echo "Example: $0 -o data -t 0.2 -k 5 -l machine -i True -p 0.75"

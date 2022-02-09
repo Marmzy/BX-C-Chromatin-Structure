@@ -8,8 +8,8 @@ import pandas as pd
 from collections import Counter
 from itertools import combinations
 from scipy import interpolate
-from sklearn.model_selection import StratifiedKFold
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.preprocessing import LabelEncoder
 
 
 def str2bool(v):
@@ -109,8 +109,7 @@ def dna_overview(df, id, cut_off, learn, interpolate, verbose):
             if learn == "deep":
                 cell_dict[id + "_" + str(cn)] = pairwise_xyz
             else:
-                pairwise_xyz = np.tril(pairwise_xyz, k=-1)
-                cell_dict[id + "_" + str(cn)] = pairwise_xyz[np.nonzero(pairwise_xyz)]
+                cell_dict[id + "_" + str(cn)] = pairwise_xyz[np.triu_indices(52, k=1)]
 
     return cell_dict
 
@@ -199,6 +198,10 @@ def main():
         X = list(pairwise.keys())
     y = exp_states_combined
 
+    #Encoding the target labels
+    le = LabelEncoder()
+    le.fit(y)
+
     #Splitting the data into (temporary) train and test
     if args.verbose:
         print("\nSplitting the dataset and into train ({}%) and test ({}%)...".format(str(int((1-float(args.test))*100)), str(int(float(args.test)*100))))
@@ -225,11 +228,11 @@ def main():
 
             X_train = pd.DataFrame(X_train, index=train_idx, columns=X_temp.columns.values.tolist())
             X_train.to_csv(os.path.join(path, "data", "train", "X_train_{}_{}.txt".format(args.learn, idx)))
-            np.savetxt(os.path.join(path, "data", "train", "y_train_{}_{}.txt".format(args.learn, idx)), y_train, fmt='%s')
+            np.savetxt(os.path.join(path, "data", "train", "y_train_{}_{}.txt".format(args.learn, idx)), le.transform(y_train), fmt='%s')
 
             X_val = pd.DataFrame(X_val, index=val_idx, columns=X_temp.columns.values.tolist())
             X_val.to_csv(os.path.join(path, "data", "val", "X_val_{}_{}.txt".format(args.learn, idx)))
-            np.savetxt(os.path.join(path, "data", "val", "y_val_{}_{}.txt".format(args.learn, idx)), y_val, fmt='%s')
+            np.savetxt(os.path.join(path, "data", "val", "y_val_{}_{}.txt".format(args.learn, idx)), le.transform(y_val), fmt='%s')
         else:
             X_train = {key: pairwise[key] for key in X_train}
             np.save(os.path.join(path, "data", "train", "X_train_{}_{}.npy".format(args.learn, idx)), X_train)
@@ -242,7 +245,7 @@ def main():
     #Saving the test dataset
     if args.learn == "machine":
         X_test.to_csv(os.path.join(path, "data", "test", "X_test_{}.txt".format(args.learn)))
-        np.savetxt(os.path.join(path, "data", "test", "y_test_{}.txt".format(args.learn)), y_test, fmt='%s')
+        np.savetxt(os.path.join(path, "data", "test", "y_test_{}.txt".format(args.learn)), le.transform(y_test), fmt='%s')
     else:
         X_test = {key: pairwise[key] for key in X_test}
         np.save(os.path.join(path, "data", "test", "X_test_{}.npy".format(args.learn)), X_test)
