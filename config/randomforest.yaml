@@ -1,0 +1,13 @@
+data:
+  dirname: "data"
+  download: False
+  cutoff: 0.75
+  interpolate: False
+model:
+  type: "machine"
+  name: "RandomForest"
+pipeline:
+  cv: 5
+  split:
+    test: 0.2
+verbose: True
