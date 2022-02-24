@@ -75,7 +75,7 @@ def dna_overview(
     df: pd.DataFrame,
     id: str,
     cut_off: float,
-    learn: str,
+    type: str,
     interpolate: bool,
     verbose: bool
 ) -> Dict[str, np.ndarray]:
@@ -85,7 +85,7 @@ def dna_overview(
         df (pd.DataFrame): 3D ORCA data
         id (str): Dataset name
         cut_off (float): NaN filter
-        learn (str): Machine or Deep to decide the output
+        type (str): Machine or Deep to decide the output
         interpolate (bool): Whether to interpolate missing coordinates or not
         verbose (bool): Print detailed information
 
@@ -114,7 +114,7 @@ def dna_overview(
             pairwise_xyz = pairwise_distances(mini_df, missing, interpolate)
 
             #Adding pairwise data to the dictionary
-            if learn == "deep":
+            if type == "deep":
                 cell_dict[id + "_" + str(cn)] = pairwise_xyz
             else:
                 cell_dict[id + "_" + str(cn)] = pairwise_xyz[np.triu_indices(52, k=1)]

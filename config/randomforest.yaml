@@ -6,6 +6,7 @@ data:
 model:
   type: "machine"
   name: "RandomForest"
+  metric: "f1"
 pipeline:
   cv: 5
   split:

@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
+import torch
+
 from typing import Any, Dict, List
+
 
 def get_config_val(
     config: Dict[str, Any],
@@ -25,3 +28,16 @@ def get_config_val(
             raise KeyError(msg)
 
     return config
+    
+
+def get_device() -> torch.device:
+    """Device on which PyTorch will run
+
+    Returns:
+        torch.device: CUDA if available, otherwise CPU
+    """
+
+    if torch.cuda.is_available():
+        return torch.device("cuda:0")
+    else:
+        return torch.device("cpu")
