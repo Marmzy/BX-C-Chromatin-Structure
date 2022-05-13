@@ -4,9 +4,9 @@ data:
   cutoff: 0.75
   interpolate: False
 model:
+  target: "Abd-A" #Abd-A, Abd-B, Ubx
   type: "machine"
   name: "RandomForest"
-  metric: "f1"
 pipeline:
   cv: 5
   split:

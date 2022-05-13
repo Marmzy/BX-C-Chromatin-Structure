@@ -1,36 +1,27 @@
 #!/usr/bin/env python
 
+from sys import modules
 import numpy as np
 import pandas as pd
 
 def rna_overview(
-    df: pd.DataFrame
+    df: pd.DataFrame,
+    target: str
 ) -> np.ndarray:
-    """Get expression states of target genes
+    """Get expression state of target gene
 
     Args:
         df (pd.DataFrame): RNA expression data
+        target (str): Target gene
 
     Returns:
-        np.ndarray: Genes Abd-A, Abd-B and Ubx expression states
+        np.ndarray: Expression state of target gene
     """
 
-    #Initialising variables
-    states = {}
+    #Getting the number of molecules per cell
+    cols = [col for col in df.columns if target in col]
+    cols = [c for c in cols if "intron" not in c.lower()]
+    molecules = df[cols].sum(axis=1)
 
-    #Looping over the three genes
-    for gene in ["Abd-A", "Abd-B", "Ubx"]:
-        cols = ["cellNumber", "embNumber", "segNumber"]
-        cols.extend([col for col in df.columns if gene in col])
-
-        #Getting the number of molecules per cell
-        mini_df = df[cols]
-        molecules = mini_df.iloc[:, 3:].sum(axis=1)
-
-        #Convert the number of molecules to expression states
-        states[gene] = list(molecules.where(molecules < 1, 1))
-
-    #Combining the data for all three genes
-    exp_states = [",".join([str(a), str(b), str(u)]) for a, b, u in zip(states["Abd-A"], states["Abd-B"], states["Ubx"])]
-
-    return np.array(exp_states)
+    #Convert the number of molecules to expression states
+    return np.array(list(molecules.where(molecules < 1, 1)))

@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 
-import joblib
-import numpy as np
 import pandas as pd
 import os
 import torch
 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import make_scorer, roc_auc_score
+from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import PredefinedSplit
 from skopt import BayesSearchCV
 from src.training.cnn import CustomCNN
-from src.utils.file_helper import check_path
+from src.utils.file_helper import check_file, check_path
+from typing import Tuple
 
 
 class BXCModel():
@@ -21,7 +20,10 @@ class BXCModel():
         data_dir: str,
         model_name: str,
         model_type: str,
-        device: torch.device
+        target: str,
+        interpol: bool,
+        device: torch.device,
+        verbose: bool
     ) -> None:
         """init
 
@@ -30,13 +32,19 @@ class BXCModel():
             data_dir (str): Data directory name
             model_name (str): Classifier name
             model_type (str): Machine or Deep depending on classifier
+            target (str): Target gene name
+            interpol (bool): Missing values interpolated boolean
             device (torch.device): Device on which to train
+            verbose (bool): Detailed log 
         """
         
         self.path = check_path(os.path.join(path, data_dir))
         self.model = model_name
         self.type = model_type
+        self.target = target
+        self.interpol = interpol
         self.device = device
+        self.verbose = verbose
 
     def create_clf(
         self
@@ -44,37 +52,67 @@ class BXCModel():
         """Load model classifier"""
 
         if self.model == "RandomForest":
-            self.clf = RandomForestClassifier()
+            self.clf = RandomForestClassifier(class_weight="balanced")
         else:
             self.clf = CustomCNN().to(self.device)
 
-    def get_data(
+    def load_test(
+        self
+    ) -> None:
+        """Load test datasets"""
+
+        if self.verbose:
+                print(f"Loading test data...")
+
+        if self.interpol:
+            suffix = "_interpolate"
+        else:
+            suffix = ""
+
+        #Loading the test datasets
+        if self.type == "machine":
+            X_test_path = check_file(os.path.join(self.path, f"test/X_test_{self.target}{suffix}_{self.type}.txt"))
+            y_test_path = check_file(os.path.join(self.path, f"test/y_test_{self.target}{suffix}_{self.type}.txt"))
+            self.X_test = pd.read_csv(X_test_path, index_col=0)
+            with open(y_test_path) as f:
+                self.y_test = pd.Series([line.rstrip() for line in f], index=self.X_test.index)
+        else:
+            X_test_path = check_file(os.path.join(self.path, f"test/X_test_{self.target}{suffix}_{self.type}.npy"))
+            y_test_path = check_file(os.path.join(self.path, f"test/y_test_{self.target}{suffix}_{self.type}.npy"))
+
+    def load_train_val(
         self,
-        x_train_path: str,
-        y_train_path: str,
-        x_val_path: str,
-        y_val_path: str
+        fold: int
     ) -> None:
         """Load training and validation datasets
 
         Args:
-            x_train_path (str): Training explanatory data path
-            y_train_path (str): Training response data path
-            x_val_path (str): Validation explanatory data path
-            y_val_path (str): Validation response data path
+            fold (int): K-fold number
         """
+
+        if self.verbose:
+                print(f"Loading data for fold {fold}...")
+
+        if self.interpol:
+            suffix = "_interpolate"
+        else:
+            suffix = ""
 
         if self.type == "machine":
 
-            #Loading the training dataset
-            X_train = pd.read_csv(x_train_path, index_col=0)
-            y_train = pd.read_csv(y_train_path, sep=" ", names=["0,0,0", "0,0,1", "0,1,0", "0,1,1",
-                                                                "1,0,0", "1,0,1", "1,1,0", "1,1,1"])
+            #Loading the training datasets
+            X_train_path = check_file(os.path.join(self.path, f"train/X_train_{self.target}{suffix}_{self.type}_{str(fold)}.txt"))
+            y_train_path = check_file(os.path.join(self.path, f"train/y_train_{self.target}{suffix}_{self.type}_{str(fold)}.txt"))
+            X_train = pd.read_csv(X_train_path, index_col=0)
+            with open(y_train_path) as f:
+                y_train = pd.Series([line.rstrip() for line in f], index=X_train.index)
 
-            #Loading the validation dataset
-            X_val = pd.read_csv(x_val_path, index_col=0)
-            y_val = pd.read_csv(y_val_path, sep=" ", names=["0,0,0", "0,0,1", "0,1,0", "0,1,1",
-                                                            "1,0,0", "1,0,1", "1,1,0", "1,1,1"])
+            #Loading the validation datasets
+            X_val_path = check_file(os.path.join(self.path, f"val/X_val_{self.target}{suffix}_{self.type}_{str(fold)}.txt"))
+            y_val_path = check_file(os.path.join(self.path, f"val/y_val_{self.target}{suffix}_{self.type}_{str(fold)}.txt"))
+            X_val = pd.read_csv(X_val_path, index_col=0)
+            with open(y_val_path) as f:
+                y_val = pd.Series([line.rstrip() for line in f], index=X_val.index)
 
             #Combining the train and val datasets
             self.X = pd.concat([X_train, X_val])
@@ -83,18 +121,40 @@ class BXCModel():
             #Indicating the validation records
             self.predefined = [-1] * len(X_train) + [0] * len(X_val)
 
+    def predict(
+        self,
+        fold: int,
+    ) -> Tuple[pd.Series, pd.Series]:
+        """Make predictions with the trained model
+        
+        Args:
+            fold (int): K-fold number
+        """
+
+        if self.interpol:
+            suffix = "_interpolate"
+        else:
+            suffix = ""
+
+        if self.type == "machine":
+
+            #Making predictions
+            y_pred = self.trained_model.predict(self.X_test)
+
+            #Reporting and returning results
+            with open(check_path(os.path.join(self.path, f"output/{self.model.lower()}{suffix}/{self.target.lower()}/{self.model.lower()}_scores.txt")), "a") as out_f:
+                print("ROC-AUC score for fold {}: {:.6f}".format(fold, roc_auc_score(self.y_test, y_pred, average="macro")))
+                print("ROC-AUC score for fold {}: {:.6f}".format(fold, roc_auc_score(self.y_test, y_pred, average="macro")), file=out_f)
+                return (self.y_test, pd.Series(y_pred, index=self.y_test.index))
+
     def train(
         self,
-        f_name: str,
         fold: int,
-        verbose: bool
     ) -> None:
         """Train and save best model
 
         Args:
-            f_name (str): Output file name
             fold (int): Fold number
-            verbose (bool): Print detailed information
         """
 
         if self.type == "machine":
@@ -109,15 +169,15 @@ class BXCModel():
             ps = PredefinedSplit(self.predefined)
 
             #Tuning hyperparameters on the validation dataset
-            print("Training the model and optimizing hyperparameters...")
-            opt = BayesSearchCV(self.clf, param_grid, scoring=make_scorer(roc_auc_score, average="macro", multi_class="ovo"), cv=ps, n_jobs=-1, random_state=0)
+            print("Training the model and optimising hyperparameters...")
+            opt = BayesSearchCV(self.clf, param_grid, scoring="roc_auc", cv=ps, n_jobs=-1, random_state=0)
             opt.fit(self.X, self.y)
 
-            if verbose:
-                print("Optimal hyperparameters for fold {}:".format(str(fold)))
+            if self.verbose:
+                print(f"Optimal hyperparameters for fold {str(fold)}:")
                 for key, val in opt.best_params_.items():
-                    print("{}: {}".format(key, str(val)))
+                    print("\t{}: {}".format(key, str(val)))
+                print("")
 
             #Saving the classifier with best hyperparameters
-            joblib.dump(opt.best_estimator_, os.path.join(self.path, f_name))
-        
+            self.trained_model = opt.best_estimator_
