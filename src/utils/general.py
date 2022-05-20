@@ -15,6 +15,9 @@ def get_config_val(
         config (Dict[str, Any]): Configuration (.yaml) file
         keys (List[str]): List of key names
 
+    Raises:
+        KeyError: If key cannot be loaded
+
     Returns:
         Any: Value given the input keys
     """

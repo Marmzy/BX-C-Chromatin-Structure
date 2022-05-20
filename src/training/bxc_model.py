@@ -71,14 +71,14 @@ class BXCModel():
 
         #Loading the test datasets
         if self.type == "machine":
-            X_test_path = check_file(os.path.join(self.path, f"test/X_test_{self.target}{suffix}_{self.type}.txt"))
-            y_test_path = check_file(os.path.join(self.path, f"test/y_test_{self.target}{suffix}_{self.type}.txt"))
+            X_test_path = check_file(os.path.join(self.path, f"test/{self.type}/{self.target}/X_test{suffix}.txt"))
+            y_test_path = check_file(os.path.join(self.path, f"test/{self.type}/{self.target}/y_test{suffix}.txt"))
             self.X_test = pd.read_csv(X_test_path, index_col=0)
             with open(y_test_path) as f:
                 self.y_test = pd.Series([line.rstrip() for line in f], index=self.X_test.index)
         else:
-            X_test_path = check_file(os.path.join(self.path, f"test/X_test_{self.target}{suffix}_{self.type}.npy"))
-            y_test_path = check_file(os.path.join(self.path, f"test/y_test_{self.target}{suffix}_{self.type}.npy"))
+            X_test_path = check_file(os.path.join(self.path, f"test/{self.type}/{self.target}/X_test{suffix}.npy"))
+            y_test_path = check_file(os.path.join(self.path, f"test/{self.type}/{self.target}/y_test{suffix}.npy"))
 
     def load_train_val(
         self,
@@ -101,15 +101,15 @@ class BXCModel():
         if self.type == "machine":
 
             #Loading the training datasets
-            X_train_path = check_file(os.path.join(self.path, f"train/X_train_{self.target}{suffix}_{self.type}_{str(fold)}.txt"))
-            y_train_path = check_file(os.path.join(self.path, f"train/y_train_{self.target}{suffix}_{self.type}_{str(fold)}.txt"))
+            X_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/X_train{suffix}_{str(fold)}.txt"))
+            y_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/y_train{suffix}_{str(fold)}.txt"))
             X_train = pd.read_csv(X_train_path, index_col=0)
             with open(y_train_path) as f:
                 y_train = pd.Series([line.rstrip() for line in f], index=X_train.index)
 
             #Loading the validation datasets
-            X_val_path = check_file(os.path.join(self.path, f"val/X_val_{self.target}{suffix}_{self.type}_{str(fold)}.txt"))
-            y_val_path = check_file(os.path.join(self.path, f"val/y_val_{self.target}{suffix}_{self.type}_{str(fold)}.txt"))
+            X_val_path = check_file(os.path.join(self.path, f"val/{self.type}/{self.target}/X_val{suffix}_{str(fold)}.txt"))
+            y_val_path = check_file(os.path.join(self.path, f"val/{self.type}/{self.target}/y_val{suffix}_{str(fold)}.txt"))
             X_val = pd.read_csv(X_val_path, index_col=0)
             with open(y_val_path) as f:
                 y_val = pd.Series([line.rstrip() for line in f], index=X_val.index)
@@ -142,7 +142,7 @@ class BXCModel():
             y_pred = self.trained_model.predict(self.X_test)
 
             #Reporting and returning results
-            with open(check_path(os.path.join(self.path, f"output/{self.model.lower()}{suffix}/{self.target.lower()}/{self.model.lower()}_scores.txt")), "a") as out_f:
+            with open(check_path(os.path.join(self.path, f"output/{self.model.lower()}{suffix}/{self.target}/{self.model.lower()}_scores.txt")), "a") as out_f:
                 print("ROC-AUC score for fold {}: {:.6f}".format(fold, roc_auc_score(self.y_test, y_pred, average="macro")))
                 print("ROC-AUC score for fold {}: {:.6f}".format(fold, roc_auc_score(self.y_test, y_pred, average="macro")), file=out_f)
                 return (self.y_test, pd.Series(y_pred, index=self.y_test.index))

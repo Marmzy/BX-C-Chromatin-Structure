@@ -67,6 +67,9 @@ def read_yaml(
     Args:
         config (str): yaml file path
 
+    Raises:
+        YAMLError: If yaml file cannot be read
+
     Returns:
         Dict[str, Any]: yaml file contents
     """

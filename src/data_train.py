@@ -6,9 +6,17 @@ import os
 from src.training.bxc_model import BXCModel
 from src.utils.file_helper import check_path, get_path
 from src.utils.general import get_config_val, get_device
+from typer import Any, Dict
 
 
-def main_train(conf_dict):
+def main_train(
+    conf_dict: Dict[str, Any]
+) -> None:
+    """Training the model and optimising hyperparameters
+
+    Args:
+        conf_dict (Dict[str, Any]): Yaml file contents
+    """
 
     #Initialising variables
     data_dir = get_config_val(conf_dict, ["data", "dirname"])
@@ -34,6 +42,6 @@ def main_train(conf_dict):
         #Training the model
         model.train(k)
         if interpol:
-            joblib.dump(model, check_path(os.path.join(path, data_dir, f"output/{model_name.lower()}_interpolate/{target.lower()}/{model_name.lower()}_fold{str(k)}.pkl")))
+            joblib.dump(model, check_path(os.path.join(path, data_dir, f"output/{model_name.lower()}_interpolate/{target}/{model_name.lower()}_fold{str(k)}.pkl")))
         else:
-            joblib.dump(model, check_path(os.path.join(path, data_dir, f"output/{model_name.lower()}/{target.lower()}/{model_name.lower()}_fold{str(k)}.pkl")))
+            joblib.dump(model, check_path(os.path.join(path, data_dir, f"output/{model_name.lower()}/{target}/{model_name.lower()}_fold{str(k)}.pkl")))

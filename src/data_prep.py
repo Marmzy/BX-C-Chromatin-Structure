@@ -1,26 +1,36 @@
 #!/usr/bin/env python
 
 import itertools
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+import seaborn as sns
 
 from collections import Counter
 from sklearn.model_selection import StratifiedKFold, train_test_split
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from src.preprocessing.dna_prep import dna_overview
 from src.preprocessing.rna_prep import rna_overview
 from src.preprocessing.download_data import download_raw
-from src.utils.file_helper import get_path, check_file
+from src.utils.file_helper import get_path, check_file, check_path
 from src.utils.general import get_config_val
+from typer import Any, Dict
 
  
-def main_prep(conf_dict):
+def main_prep(
+    conf_dict: Dict[str, Any]
+) -> None:
+    """Prepare data for training
+
+    Args:
+        conf_dict (Dict[str, Any]): Yaml file contents
+    """
 
     #Initialising variables
     cut_off = 52 * get_config_val(conf_dict, ["data", "cutoff"])
     data_dir = get_config_val(conf_dict, ["data", "dirname"])
     download = get_config_val(conf_dict, ["data", "download"])
+    visualise = get_config_val(conf_dict, ["data", "visualise"])
     interpolate = get_config_val(conf_dict, ["data", "interpolate"])
     model_type = get_config_val(conf_dict, ["model", "type"])
     pairwise = {}
@@ -73,14 +83,24 @@ def main_prep(conf_dict):
     #Defining the explanatory and response data
     if model_type == "machine":
         X = pd.DataFrame.from_dict(pairwise, orient="index", columns=[str(c1) + "_" + str(c2) for c1, c2 in itertools.combinations(list(range(1, 53)), 2)])
+        X = X.fillna(-1)
     else:
         X = list(pairwise.keys())
-    X = X.fillna(-1)
     y = exp_states_combined.reshape(-1, 1)
 
-    # #Encoding the target labels
-    # enc = OneHotEncoder(sparse=False).fit(y)
-    # enc2 = LabelEncoder().fit(y)
+    #Outputting the pairwise distances as images
+    if visualise:
+        if interpolate:
+            image_dir = "interpolate"
+        else:
+            image_dir = "missing"
+
+        for key in X:
+            heatmap = sns.heatmap(pairwise[key], cbar=False, xticklabels=False, yticklabels=False)
+            heatmap.set_facecolor("white")
+            fig = heatmap.get_figure()
+            fig.savefig(check_path(os.path.join(path, data_dir, "raw/images/{}/{}.png".format(image_dir, key))))
+            fig.clf()
 
     #Splitting the data into (temporary) train and test
     test = get_config_val(conf_dict, ["pipeline", "split", "test"])
@@ -115,29 +135,30 @@ def main_prep(conf_dict):
             val_idx = [X_temp.index.values.tolist()[i] for i in val_index]
 
             X_train = pd.DataFrame(X_train, index=train_idx, columns=X_temp.columns.values.tolist())
-            X_train.to_csv(os.path.join(path, data_dir, "train/X_train_{}{}_{}_{}.txt".format(target, suffix, model_type, idx)))
-            np.savetxt(os.path.join(path, data_dir, "train/y_train_{}{}_{}_{}.txt".format(target, suffix, model_type, idx)), y_train, fmt='%s')
+            X_train.to_csv(check_path(os.path.join(path, data_dir, "train/{}/{}/X_train{}_{}.txt".format(model_type, target, suffix, idx))))
+            np.savetxt(check_path(os.path.join(path, data_dir, "train/{}/{}/y_train{}_{}.txt".format(model_type, target, suffix, idx))), y_train, fmt='%s')
 
             X_val = pd.DataFrame(X_val, index=val_idx, columns=X_temp.columns.values.tolist())
-            X_val.to_csv(os.path.join(path, data_dir, "val/X_val_{}{}_{}_{}.txt".format(target, suffix, model_type, idx)))
-            np.savetxt(os.path.join(path, data_dir, "val/y_val_{}{}_{}_{}.txt".format(target, suffix, model_type, idx)), y_val, fmt='%s')
+            X_val.to_csv(check_path(os.path.join(path, data_dir, "val/{}/{}/X_val{}_{}.txt".format(model_type, target, suffix, idx))))
+            np.savetxt(check_path(os.path.join(path, data_dir, "val/{}/{}/y_val{}_{}.txt".format(model_type, target, suffix, idx))), y_val, fmt='%s')
         else:
-            X_train = {key: pairwise[key] for key in X_train}
-            np.save(os.path.join(path, data_dir, "train/X_train_{}{}_{}_{}.npy".format(target, suffix, model_type, idx)), X_train)
-            np.savetxt(os.path.join(path, data_dir, "train/y_train_{}{}_{}_{}.npy".format(target, suffix, model_type, idx)), y_train, fmt='%s')
+            train_paths = [os.path.join(path, f"data/raw/images/{key}.png") for key in X_train]
+            val_paths = [os.path.join(path, f"data/raw/images/{key}.png") for key in X_val]
+            
+            np.savetxt(check_path(os.path.join(path, data_dir, "train/{}/{}/X_train{}_{}.txt".format(model_type, target, suffix, idx))), np.array(train_paths), fmt='%s')
+            np.savetxt(check_path(os.path.join(path, data_dir, "train/{}/{}/y_train{}_{}.txt".format(model_type, target, suffix, idx))), y_train, fmt='%s')
 
-            X_val = {key: pairwise[key] for key in X_val}
-            np.save(os.path.join(path, data_dir, "val/X_val_{}{}_{}_{}.npy".format(target, suffix, model_type, idx)), X_val)
-            np.savetxt(os.path.join(path, data_dir, "val/y_val_{}{}_{}_{}.npy".format(target, suffix, model_type, idx)), y_val, fmt='%s')
+            np.savetxt(check_path(os.path.join(path, data_dir, "val/{}/{}/X_val{}_{}.txt".format(model_type, target, suffix, idx))), np.array(val_paths), fmt='%s')
+            np.savetxt(check_path(os.path.join(path, data_dir, "val/{}/{}/y_val{}_{}.txt".format(model_type, target, suffix, idx))), y_val, fmt='%s')
 
     #Saving the test dataset
     if model_type == "machine":
-        X_test.to_csv(os.path.join(path, data_dir, "test/X_test_{}{}_{}.txt".format(target, suffix, model_type)))
-        np.savetxt(os.path.join(path, data_dir, "test/y_test_{}{}_{}.txt".format(target, suffix, model_type)), y_test, fmt='%s')
+        X_test.to_csv(check_path(os.path.join(path, data_dir, "test/{}/{}/X_test{}.txt".format(model_type, target, suffix))))
+        np.savetxt(check_path(os.path.join(path, data_dir, "test/{}/{}/y_test{}.txt".format(model_type, target, suffix))), y_test, fmt='%s')
     else:
-        X_test = {key: pairwise[key] for key in X_test}
-        np.save(os.path.join(path, data_dir, "test/X_test_{}{}_{}.npy".format(target, suffix, model_type)), X_test)
-        np.savetxt(os.path.join(path, data_dir, "test/y_test_{}{}_{}.npy".format(target, suffix, model_type)), y_test, fmt='%s')
+        test_paths = [os.path.join(path, f"data/raw/images/{key}.png") for key in X_test]
+        np.savetxt(check_path(os.path.join(path, data_dir, "test/{}/{}/X_test{}.txt".format(model_type, target, suffix, idx))), np.array(test_paths), fmt='%s')
+        np.savetxt(check_path(os.path.join(path, data_dir, "test/{}/{}/y_test{}.test".format(model_type, target, suffix))), y_test, fmt='%s')
 
     if verbose:
         print("\nSaved the training datasets to: {}".format(os.path.join(path, data_dir, "train")))

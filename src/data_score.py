@@ -8,9 +8,17 @@ import pandas as pd
 from natsort import natsort_keygen
 from src.utils.file_helper import get_path
 from src.utils.general import get_config_val
+from typer import Any, Dict
 
 
-def main_score(conf_dict):
+def main_score(
+    conf_dict: Dict[str, Any]
+) -> None:
+    """Evaluating the trained model
+
+    Args:
+        conf_dict (Dict[str, Any]): Yaml file contents
+    """
 
     #Initialising variables
     data_dir = get_config_val(conf_dict, ["data", "dirname"])
@@ -31,7 +39,7 @@ def main_score(conf_dict):
             suffix = "_interpolate"
         
         #Making predictions
-        for k, model in enumerate(glob.glob(f"{os.path.join(path, data_dir)}/output/{model_name.lower()}{suffix}/{target.lower()}/*.pkl")):
+        for k, model in enumerate(glob.glob(f"{os.path.join(path, data_dir)}/output/{model_name.lower()}{suffix}/{target}/*.pkl")):
 
             #Loading the test datasets
             model = joblib.load(model)
@@ -46,5 +54,5 @@ def main_score(conf_dict):
         pred_dict["GroundTruth"] = y_true.values
         pred_dict["Sample"] = y_true.index
         df = pd.DataFrame(pred_dict).sort_values(by="Sample", key=natsort_keygen())
-        out_f = f"{os.path.join(path, data_dir)}/output/{model_name.lower()}{suffix}/{target.lower()}/{model_name.lower()}_predictions.txt"
+        out_f = f"{os.path.join(path, data_dir)}/output/{model_name.lower()}{suffix}/{target}/{model_name.lower()}_predictions.txt"
         df.to_csv(out_f, sep="\t", index=False)
