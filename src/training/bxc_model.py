@@ -9,42 +9,39 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import PredefinedSplit
 from skopt import BayesSearchCV
 from src.training.cnn import CustomCNN
+from src.training.image_dataset import get_image_mean
 from src.utils.file_helper import check_file, check_path
-from typing import Tuple
+from src.utils.general import get_config_val
+from typing import Any, Dict, Tuple
 
 
 class BXCModel():
     def __init__(
         self,
         path: str,
-        data_dir: str,
-        model_name: str,
-        model_type: str,
-        target: str,
-        interpol: bool,
+        conf_dict: Dict[str, Any],
         device: torch.device,
-        verbose: bool
     ) -> None:
         """init
 
         Args:
             path (str): Project path
-            data_dir (str): Data directory name
-            model_name (str): Classifier name
-            model_type (str): Machine or Deep depending on classifier
-            target (str): Target gene name
-            interpol (bool): Missing values interpolated boolean
+            conf_dict (Dict[str, Any]): Yaml file contents
             device (torch.device): Device on which to train
-            verbose (bool): Detailed log 
         """
         
-        self.path = check_path(os.path.join(path, data_dir))
-        self.model = model_name
-        self.type = model_type
-        self.target = target
-        self.interpol = interpol
+        self.yaml = conf_dict
         self.device = device
-        self.verbose = verbose
+
+        data_dir = get_config_val(self.yaml, ["data", "dirname"])
+        self.path = check_path(os.path.join(path, data_dir))
+
+        self.model = get_config_val(self.yaml, ["model", "name"])
+        self.type = get_config_val(self.yaml, ["model", "type"])
+        self.target = get_config_val(self.yaml, ["model", "target"])
+        self.interpol = get_config_val(self.yaml, ["data", "interpolate"])
+        self.verbose = get_config_val(self.yaml, ["verbose"])
+        
 
     def create_clf(
         self
@@ -98,18 +95,22 @@ class BXCModel():
         else:
             suffix = ""
 
+        #Specifying the training datasets
+        X_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/X_train{suffix}_{str(fold)}.txt"))
+        y_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/y_train{suffix}_{str(fold)}.txt"))
+
+        #Specifying the validation datasets
+        X_val_path = check_file(os.path.join(self.path, f"val/{self.type}/{self.target}/X_val{suffix}_{str(fold)}.txt"))
+        y_val_path = check_file(os.path.join(self.path, f"val/{self.type}/{self.target}/y_val{suffix}_{str(fold)}.txt"))
+
         if self.type == "machine":
 
             #Loading the training datasets
-            X_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/X_train{suffix}_{str(fold)}.txt"))
-            y_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/y_train{suffix}_{str(fold)}.txt"))
             X_train = pd.read_csv(X_train_path, index_col=0)
             with open(y_train_path) as f:
                 y_train = pd.Series([line.rstrip() for line in f], index=X_train.index)
 
             #Loading the validation datasets
-            X_val_path = check_file(os.path.join(self.path, f"val/{self.type}/{self.target}/X_val{suffix}_{str(fold)}.txt"))
-            y_val_path = check_file(os.path.join(self.path, f"val/{self.type}/{self.target}/y_val{suffix}_{str(fold)}.txt"))
             X_val = pd.read_csv(X_val_path, index_col=0)
             with open(y_val_path) as f:
                 y_val = pd.Series([line.rstrip() for line in f], index=X_val.index)
@@ -120,6 +121,19 @@ class BXCModel():
 
             #Indicating the validation records
             self.predefined = [-1] * len(X_train) + [0] * len(X_val)
+
+        else:
+
+            #Initialising variables
+            batch_size = get_config_val(self.yaml, ["model", "params", "batch"])
+
+            #Getting the mean and standard deviation of our dataset
+            print(batch_size)
+            # img_mean, img_std = get_image_mean(X_train_path, y_train_path, batch_size)
+
+            #Loading the training datasets
+            # print(X_train_path)
+
 
     def predict(
         self,

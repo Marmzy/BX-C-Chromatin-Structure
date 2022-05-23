@@ -3,11 +3,13 @@ data:
   download: False
   visualise: False
   cutoff: 0.75
-  interpolate: True
+  interpolate: False
 model:
-  target: "Ubx" #Abd-A, Abd-B, Ubx
+  target: "Abd-A" #Abd-A, Abd-B, Ubx
   type: "deep"
   name: "Custom" #Custom
+  params:
+    batch: 32
 pipeline:
   cv: 5
   split:

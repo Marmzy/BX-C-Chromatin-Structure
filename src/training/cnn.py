@@ -18,7 +18,6 @@ class BaseBlock(nn.Module):
 
         self.conv2 = nn.Conv2d(input, channels, kernel_size=7, stride=1, padding=pad)
         self.bnorm2 = nn.BatchNorm2d(channels)
-        F.max_pool2d
 
     def forward(self, x):
         return F.relu(self.bnorm2(self.conv2(x)))

@@ -1,0 +1,5 @@
+.vscode/settings.json
+src/legacy/*
+**.ipynb
+**.pyc
+data/*
