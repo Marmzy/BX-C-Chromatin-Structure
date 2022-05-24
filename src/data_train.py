@@ -27,24 +27,22 @@ def main_train(
     path = get_path()
     target = get_config_val(conf_dict, ["model", "target"])
 
-    print("test")
-    quit()
-
     #Setting up the model
     model = BXCModel(path, conf_dict, device)
     model.create_clf()
 
     #Looping over the K folds
     for k in range(kfold):
-        print(k)
-
+        
         #Loading the training and validation datasets
         model.load_train_val(k)
         quit()
 
-        #Training the model
-        model.train(k)
-        if interpol:
-            joblib.dump(model, check_path(os.path.join(path, data_dir, f"output/{model_name.lower()}_interpolate/{target}/{model_name.lower()}_fold{str(k)}.pkl")))
-        else:
-            joblib.dump(model, check_path(os.path.join(path, data_dir, f"output/{model_name.lower()}/{target}/{model_name.lower()}_fold{str(k)}.pkl")))
+        break
+
+        # #Training the model
+        # model.train(k)
+        # if interpol:
+        #     joblib.dump(model, check_path(os.path.join(path, data_dir, f"output/{model_name.lower()}_interpolate/{target}/{model_name.lower()}_fold{str(k)}.pkl")))
+        # else:
+        #     joblib.dump(model, check_path(os.path.join(path, data_dir, f"output/{model_name.lower()}/{target}/{model_name.lower()}_fold{str(k)}.pkl")))

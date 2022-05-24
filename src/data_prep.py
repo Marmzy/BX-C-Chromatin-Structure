@@ -89,12 +89,12 @@ def main_prep(
     y = exp_states_combined.reshape(-1, 1)
 
     #Outputting the pairwise distances as images
-    if visualise:
-        if interpolate:
-            image_dir = "interpolate"
-        else:
-            image_dir = "missing"
+    if interpolate:
+        image_dir = "interpolate"
+    else:
+        image_dir = "missing"
 
+    if visualise:
         for key in X:
             heatmap = sns.heatmap(pairwise[key], cbar=False, xticklabels=False, yticklabels=False)
             heatmap.set_facecolor("white")
@@ -142,8 +142,8 @@ def main_prep(
             X_val.to_csv(check_path(os.path.join(path, data_dir, "val/{}/{}/X_val{}_{}.txt".format(model_type, target, suffix, idx))))
             np.savetxt(check_path(os.path.join(path, data_dir, "val/{}/{}/y_val{}_{}.txt".format(model_type, target, suffix, idx))), y_val, fmt='%s')
         else:
-            train_paths = [os.path.join(path, f"data/raw/images/{key}.png") for key in X_train]
-            val_paths = [os.path.join(path, f"data/raw/images/{key}.png") for key in X_val]
+            train_paths = [os.path.join(path, f"data/raw/images/{image_dir}/{key}.png") for key in X_train]
+            val_paths = [os.path.join(path, f"data/raw/images/{image_dir}/{key}.png") for key in X_val]
             
             np.savetxt(check_path(os.path.join(path, data_dir, "train/{}/{}/X_train{}_{}.txt".format(model_type, target, suffix, idx))), np.array(train_paths), fmt='%s')
             np.savetxt(check_path(os.path.join(path, data_dir, "train/{}/{}/y_train{}_{}.txt".format(model_type, target, suffix, idx))), y_train, fmt='%s')
@@ -156,7 +156,7 @@ def main_prep(
         X_test.to_csv(check_path(os.path.join(path, data_dir, "test/{}/{}/X_test{}.txt".format(model_type, target, suffix))))
         np.savetxt(check_path(os.path.join(path, data_dir, "test/{}/{}/y_test{}.txt".format(model_type, target, suffix))), y_test, fmt='%s')
     else:
-        test_paths = [os.path.join(path, f"data/raw/images/{key}.png") for key in X_test]
+        test_paths = [os.path.join(path, f"data/raw/images/{image_dir}/{key}.png") for key in X_test]
         np.savetxt(check_path(os.path.join(path, data_dir, "test/{}/{}/X_test{}.txt".format(model_type, target, suffix, idx))), np.array(test_paths), fmt='%s')
         np.savetxt(check_path(os.path.join(path, data_dir, "test/{}/{}/y_test{}.test".format(model_type, target, suffix))), y_test, fmt='%s')
 

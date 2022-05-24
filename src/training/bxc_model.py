@@ -1,17 +1,20 @@
 #!/usr/bin/env python
 
+import numpy as np
 import pandas as pd
 import os
 import torch
+import torchvision.transforms as transforms
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import PredefinedSplit
 from skopt import BayesSearchCV
 from src.training.cnn import CustomCNN
-from src.training.image_dataset import get_image_mean
+from src.training.image_data import BXCDataset, get_image_mean
 from src.utils.file_helper import check_file, check_path
 from src.utils.general import get_config_val
+from torch.utils.data import DataLoader
 from typing import Any, Dict, Tuple
 
 
@@ -23,7 +26,6 @@ class BXCModel():
         device: torch.device,
     ) -> None:
         """init
-
         Args:
             path (str): Project path
             conf_dict (Dict[str, Any]): Yaml file contents
@@ -41,7 +43,6 @@ class BXCModel():
         self.target = get_config_val(self.yaml, ["model", "target"])
         self.interpol = get_config_val(self.yaml, ["data", "interpolate"])
         self.verbose = get_config_val(self.yaml, ["verbose"])
-        
 
     def create_clf(
         self
@@ -116,23 +117,41 @@ class BXCModel():
                 y_val = pd.Series([line.rstrip() for line in f], index=X_val.index)
 
             #Combining the train and val datasets
-            self.X = pd.concat([X_train, X_val])
-            self.y = pd.concat([y_train, y_val])
+            self.X_train_val = pd.concat([X_train, X_val])
+            self.y_train_val = pd.concat([y_train, y_val])
 
             #Indicating the validation records
             self.predefined = [-1] * len(X_train) + [0] * len(X_val)
 
         else:
 
-            #Initialising variables
-            batch_size = get_config_val(self.yaml, ["model", "params", "batch"])
-
             #Getting the mean and standard deviation of our dataset
-            print(batch_size)
-            # img_mean, img_std = get_image_mean(X_train_path, y_train_path, batch_size)
+            batch_size = get_config_val(self.yaml, ["model", "params", "batch"])
+            img_mean, img_std = get_image_mean(X_train_path, y_train_path, batch_size)
+            
+            #Defining image transformation techniques to apply
+            image_transform = {
+                "train": transforms.Compose([
+                    transforms.Resize((224, 224)),
+                    transforms.RandomHorizontalFlip(p=0.5),
+                    transforms.RandomVerticalFlip(p=0.5),
+                    transforms.RandomRotation(degrees=45),
+                    transforms.Lambda(lambda img: torch.from_numpy(np.array(img).astype(np.float32)).unsqueeze(0)),
+                    transforms.Normalize((img_mean), (img_std)),
+                ]),
+                "val": transforms.Compose([
+                    transforms.Resize((224, 224)),
+                    transforms.Lambda(lambda img: torch.from_numpy(np.array(img).astype(np.float32)).unsqueeze(0)),
+                    transforms.Normalize((img_mean), (img_std)),
+                ])
+            }
 
-            #Loading the training datasets
-            # print(X_train_path)
+            #Creating the training dataset
+            bxc_train = BXCDataset(X_train_path, y_train_path, image_transform["train"])
+            bxc_val = BXCDataset(X_val_path, y_val_path, image_transform["val"])
+
+            self.train = DataLoader(bxc_train, batch_size=batch_size, shuffle=True, pin_memory=True)
+            self.val = DataLoader(bxc_val, batch_size=batch_size, shuffle=True, pin_memory=True)
 
 
     def predict(
@@ -185,7 +204,7 @@ class BXCModel():
             #Tuning hyperparameters on the validation dataset
             print("Training the model and optimising hyperparameters...")
             opt = BayesSearchCV(self.clf, param_grid, scoring="roc_auc", cv=ps, n_jobs=-1, random_state=0)
-            opt.fit(self.X, self.y)
+            opt.fit(self.X_train_val, self.y_train_val)
 
             if self.verbose:
                 print(f"Optimal hyperparameters for fold {str(fold)}:")
