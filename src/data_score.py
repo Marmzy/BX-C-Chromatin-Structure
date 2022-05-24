@@ -8,7 +8,7 @@ import pandas as pd
 from natsort import natsort_keygen
 from src.utils.file_helper import get_path
 from src.utils.general import get_config_val
-from typer import Any, Dict
+from typing import Any, Dict
 
 
 def main_score(

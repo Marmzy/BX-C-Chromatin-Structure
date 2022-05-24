@@ -1,50 +1,48 @@
 #!/usr/bin/env python
 
+import numpy as np
 import pandas as pd
 import os
 import torch
+import torchvision.transforms as transforms
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import PredefinedSplit
 from skopt import BayesSearchCV
 from src.training.cnn import CustomCNN
+from src.training.image_data import BXCDataset, get_image_mean
 from src.utils.file_helper import check_file, check_path
-from typing import Tuple
+from src.utils.general import get_config_val
+from torch.utils.data import DataLoader
+from typing import Any, Dict, Tuple
 
 
 class BXCModel():
     def __init__(
         self,
         path: str,
-        data_dir: str,
-        model_name: str,
-        model_type: str,
-        target: str,
-        interpol: bool,
+        conf_dict: Dict[str, Any],
         device: torch.device,
-        verbose: bool
     ) -> None:
         """init
-
         Args:
             path (str): Project path
-            data_dir (str): Data directory name
-            model_name (str): Classifier name
-            model_type (str): Machine or Deep depending on classifier
-            target (str): Target gene name
-            interpol (bool): Missing values interpolated boolean
+            conf_dict (Dict[str, Any]): Yaml file contents
             device (torch.device): Device on which to train
-            verbose (bool): Detailed log 
         """
         
-        self.path = check_path(os.path.join(path, data_dir))
-        self.model = model_name
-        self.type = model_type
-        self.target = target
-        self.interpol = interpol
+        self.yaml = conf_dict
         self.device = device
-        self.verbose = verbose
+
+        data_dir = get_config_val(self.yaml, ["data", "dirname"])
+        self.path = check_path(os.path.join(path, data_dir))
+
+        self.model = get_config_val(self.yaml, ["model", "name"])
+        self.type = get_config_val(self.yaml, ["model", "type"])
+        self.target = get_config_val(self.yaml, ["model", "target"])
+        self.interpol = get_config_val(self.yaml, ["data", "interpolate"])
+        self.verbose = get_config_val(self.yaml, ["verbose"])
 
     def create_clf(
         self
@@ -98,28 +96,64 @@ class BXCModel():
         else:
             suffix = ""
 
+        #Specifying the training datasets
+        X_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/X_train{suffix}_{str(fold)}.txt"))
+        y_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/y_train{suffix}_{str(fold)}.txt"))
+
+        #Specifying the validation datasets
+        X_val_path = check_file(os.path.join(self.path, f"val/{self.type}/{self.target}/X_val{suffix}_{str(fold)}.txt"))
+        y_val_path = check_file(os.path.join(self.path, f"val/{self.type}/{self.target}/y_val{suffix}_{str(fold)}.txt"))
+
         if self.type == "machine":
 
             #Loading the training datasets
-            X_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/X_train{suffix}_{str(fold)}.txt"))
-            y_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/y_train{suffix}_{str(fold)}.txt"))
             X_train = pd.read_csv(X_train_path, index_col=0)
             with open(y_train_path) as f:
                 y_train = pd.Series([line.rstrip() for line in f], index=X_train.index)
 
             #Loading the validation datasets
-            X_val_path = check_file(os.path.join(self.path, f"val/{self.type}/{self.target}/X_val{suffix}_{str(fold)}.txt"))
-            y_val_path = check_file(os.path.join(self.path, f"val/{self.type}/{self.target}/y_val{suffix}_{str(fold)}.txt"))
             X_val = pd.read_csv(X_val_path, index_col=0)
             with open(y_val_path) as f:
                 y_val = pd.Series([line.rstrip() for line in f], index=X_val.index)
 
             #Combining the train and val datasets
-            self.X = pd.concat([X_train, X_val])
-            self.y = pd.concat([y_train, y_val])
+            self.X_train_val = pd.concat([X_train, X_val])
+            self.y_train_val = pd.concat([y_train, y_val])
 
             #Indicating the validation records
             self.predefined = [-1] * len(X_train) + [0] * len(X_val)
+
+        else:
+
+            #Getting the mean and standard deviation of our dataset
+            batch_size = get_config_val(self.yaml, ["model", "params", "batch"])
+            img_mean, img_std = get_image_mean(X_train_path, y_train_path, batch_size)
+            print(img_mean, img_std)
+            
+            #Defining image transformation techniques to apply
+            image_transform = {
+                "train": transforms.Compose([
+                    transforms.Resize((224, 224)),
+                    transforms.RandomHorizontalFlip(p=0.5),
+                    transforms.RandomVerticalFlip(p=0.5),
+                    transforms.RandomRotation(degrees=45),
+                    transforms.Lambda(lambda img: torch.from_numpy(np.array(img).astype(np.float32)).unsqueeze(0)),
+                    transforms.Normalize((img_mean), (img_std)),
+                ]),
+                "val": transforms.Compose([
+                    transforms.Resize((224, 224)),
+                    transforms.Lambda(lambda img: torch.from_numpy(np.array(img).astype(np.float32)).unsqueeze(0)),
+                    transforms.Normalize((img_mean), (img_std)),
+                ])
+            }
+
+            #Creating the training dataset
+            bxc_train = BXCDataset(X_train_path, y_train_path, image_transform["train"])
+            bxc_val = BXCDataset(X_val_path, y_val_path, image_transform["val"])
+
+            self.train = DataLoader(bxc_train, batch_size=batch_size, shuffle=True, pin_memory=True)
+            self.val = DataLoader(bxc_val, batch_size=batch_size, shuffle=True, pin_memory=True)
+
 
     def predict(
         self,
@@ -171,7 +205,7 @@ class BXCModel():
             #Tuning hyperparameters on the validation dataset
             print("Training the model and optimising hyperparameters...")
             opt = BayesSearchCV(self.clf, param_grid, scoring="roc_auc", cv=ps, n_jobs=-1, random_state=0)
-            opt.fit(self.X, self.y)
+            opt.fit(self.X_train_val, self.y_train_val)
 
             if self.verbose:
                 print(f"Optimal hyperparameters for fold {str(fold)}:")
