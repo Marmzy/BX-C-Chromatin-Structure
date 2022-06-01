@@ -7,9 +7,13 @@ data:
 model:
   target: "Abd-A" #Abd-A, Abd-B, Ubx
   type: "deep"
-  name: "Custom" #Custom
+  name: "CustomCNN1" #CustomCNN1
   params:
     batch: 32
+    lr: 0.00001
+    decay: 0.000005
+    epochs: 500
+  early_stop: 10 #False, int
 pipeline:
   cv: 5
   split:

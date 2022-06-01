@@ -4,14 +4,17 @@ import numpy as np
 import pandas as pd
 import os
 import torch
+import torch.nn as nn
+import torch.optim as optim
 import torchvision.transforms as transforms
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import PredefinedSplit
 from skopt import BayesSearchCV
-from src.training.cnn import CustomCNN
-from src.training.image_data import BXCDataset, get_image_mean
+from src.training.cnn import CustomCNN1
+from src.training.image_data import BXCDataset, get_image_mean, get_weights
+from src.training.model_training import train_model
 from src.utils.file_helper import check_file, check_path
 from src.utils.general import get_config_val
 from torch.utils.data import DataLoader
@@ -52,7 +55,7 @@ class BXCModel():
         if self.model == "RandomForest":
             self.clf = RandomForestClassifier(class_weight="balanced")
         else:
-            self.clf = CustomCNN().to(self.device)
+            self.clf = CustomCNN1().to(self.device)
 
     def load_test(
         self
@@ -136,12 +139,12 @@ class BXCModel():
                     transforms.RandomHorizontalFlip(p=0.5),
                     transforms.RandomVerticalFlip(p=0.5),
                     transforms.RandomRotation(degrees=45),
-                    transforms.Lambda(lambda img: torch.from_numpy(np.array(img).astype(np.float32)).unsqueeze(0)),
+                    transforms.ToTensor(),
                     transforms.Normalize((img_mean), (img_std)),
                 ]),
                 "val": transforms.Compose([
                     transforms.Resize((224, 224)),
-                    transforms.Lambda(lambda img: torch.from_numpy(np.array(img).astype(np.float32)).unsqueeze(0)),
+                    transforms.ToTensor(),
                     transforms.Normalize((img_mean), (img_std)),
                 ])
             }
@@ -150,9 +153,8 @@ class BXCModel():
             bxc_train = BXCDataset(X_train_path, y_train_path, image_transform["train"])
             bxc_val = BXCDataset(X_val_path, y_val_path, image_transform["val"])
 
-            self.train = DataLoader(bxc_train, batch_size=batch_size, shuffle=True, pin_memory=True)
-            self.val = DataLoader(bxc_val, batch_size=batch_size, shuffle=True, pin_memory=True)
-
+            self.data_loader = {"train": DataLoader(bxc_train, batch_size=batch_size, shuffle=True, pin_memory=True),
+                                "val": DataLoader(bxc_val, batch_size=batch_size, shuffle=True, pin_memory=True)}
 
     def predict(
         self,
@@ -214,3 +216,32 @@ class BXCModel():
 
             #Saving the classifier with best hyperparameters
             self.trained_model = opt.best_estimator_
+
+        else:
+
+            #Initialising variables
+            batch_size = get_config_val(self.yaml, ["model", "params", "batch"])
+            decay = get_config_val(self.yaml, ["model", "params", "decay"])
+            early_stop = get_config_val(self.yaml, ["model", "early_stop"])
+            epochs = get_config_val(self.yaml, ["model", "params", "epochs"])
+            lr = get_config_val(self.yaml, ["model", "params","lr"])
+
+            if self.interpol:
+                suffix = "_interpolate"
+            else:
+                suffix = ""
+            y_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/y_train{suffix}_{str(fold)}.txt"))
+
+            #Checking class imbalance
+            weights = get_weights(y_train_path, self.verbose)
+
+            #Settings for training the model
+            logfile = self.model + suffix + f"_lr{lr}_decay{decay}_epochs{epochs}_batch{batch_size}_f{fold}.log"
+            logfile = check_path(os.path.join(self.path, f"output/{self.model.lower()}{suffix}/{self.target}/{logfile}"))
+            fout = open(logfile, "w")
+            loss = nn.BCEWithLogitsLoss(weight=weights)
+            optimizer = optim.AdamW(self.clf.parameters(), lr=lr, weight_decay=decay)
+
+            #Training the model
+            train_model(self.clf, loss, optimizer, epochs, early_stop, self.data_loader, fold, fout, self.device, self.verbose)
+            fout.close()

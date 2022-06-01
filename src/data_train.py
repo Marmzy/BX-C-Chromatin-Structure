@@ -36,13 +36,12 @@ def main_train(
         
         #Loading the training and validation datasets
         model.load_train_val(k)
-        quit()
 
+        #Training the model
+        model.train(k)
         break
 
-        # #Training the model
-        # model.train(k)
-        # if interpol:
-        #     joblib.dump(model, check_path(os.path.join(path, data_dir, f"output/{model_name.lower()}_interpolate/{target}/{model_name.lower()}_fold{str(k)}.pkl")))
-        # else:
-        #     joblib.dump(model, check_path(os.path.join(path, data_dir, f"output/{model_name.lower()}/{target}/{model_name.lower()}_fold{str(k)}.pkl")))
+        if interpol:
+            joblib.dump(model, check_path(os.path.join(path, data_dir, f"output/{model_name.lower()}_interpolate/{target}/{model_name.lower()}_fold{str(k)}.pkl")))
+        else:
+            joblib.dump(model, check_path(os.path.join(path, data_dir, f"output/{model_name.lower()}/{target}/{model_name.lower()}_fold{str(k)}.pkl")))
