@@ -92,15 +92,13 @@ def train_model(model, loss, optimizer, epochs, early_stop, data_loader, k, f, d
                 #Saving the model with the highest AUC for the validation data
                 if (model_score > best_metric) or (model_score == best_metric and best_loss > epoch_loss):
                     improvement = True
+                    no_improve = 0
                     best_metric = model_score
                     best_loss = epoch_loss
                     best_model_weights = copy.deepcopy(model.state_dict())
-                    # torch.save(model.state_dict(), "{}_epoch{}.pkl".format(fout, epoch+1))
-                    pkl_queue.append("{}_epoch{}.pkl".format(f.name, epoch+1))
+                    pkl_queue.append("{}_epoch{}.pkl".format(f.name.split(".")[0], epoch+1))
                     if len(pkl_queue) > 1:
                         pkl_queue.popleft()
-                        # pkl_file = pkl_queue.popleft()
-                        # os.remove(pkl_file)
                 else:
                     improvement = False
                 
@@ -117,11 +115,10 @@ def train_model(model, loss, optimizer, epochs, early_stop, data_loader, k, f, d
                 print("\nTraining completed in {:.0f}m {:.0f}s".format(time_elapsed // 60, time_elapsed % 60), file=f)
                 print("Best val {}: {:.4f}".format(m, best_metric))
                 print("Best val {}: {:.4f}".format(m, best_metric), file=f)
-                break
 
-                # #Loading the model with the best weights
-                # model.load_state(best_model_weights)
-                # return model, pkl_queue
+                #Loading the model with the best weights
+                model.load_state_dict(best_model_weights)
+                return model, pkl_queue.popleft()
 
     #Print overall training information
     time_elapsed = time.time() - since
@@ -130,4 +127,6 @@ def train_model(model, loss, optimizer, epochs, early_stop, data_loader, k, f, d
     print("Best val {}: {:.4f}".format(m, best_metric))
     print("Best val {}: {:.4f}".format(m, best_metric), file=f)
     
-    
+    #Loading the model with the best weights
+    model.load_state_dict(best_model_weights)
+    return model, pkl_queue

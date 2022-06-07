@@ -20,9 +20,9 @@ class BXCDataset(Dataset):
         """init
 
         Args:
-            X_path (str): Path to file containing image paths
+            X_path (str): Path to image paths file
             y_path (str): Path to labels file
-            transform (transforms.Compose): Composition off data transformation techniques to apply
+            transform (transforms.Compose): Composition of data transformation techniques to apply
         """
 
         self.images = pd.read_csv(X_path, header=None)

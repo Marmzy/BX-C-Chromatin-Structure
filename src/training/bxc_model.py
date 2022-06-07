@@ -236,12 +236,12 @@ class BXCModel():
             weights = get_weights(y_train_path, self.verbose)
 
             #Settings for training the model
-            logfile = self.model + suffix + f"_lr{lr}_decay{decay}_epochs{epochs}_batch{batch_size}_f{fold}.log"
+            logfile = self.model + suffix + f"_lr{lr}_decay{decay}_epochs{epochs}_batch{batch_size}_f{fold}"
             logfile = check_path(os.path.join(self.path, f"output/{self.model.lower()}{suffix}/{self.target}/{logfile}"))
-            fout = open(logfile, "w")
+            fout = open(logfile + ".log", "w")
             loss = nn.BCEWithLogitsLoss(weight=weights)
             optimizer = optim.AdamW(self.clf.parameters(), lr=lr, weight_decay=decay)
 
             #Training the model
-            train_model(self.clf, loss, optimizer, epochs, early_stop, self.data_loader, fold, fout, self.device, self.verbose)
+            self.trained_model, self.epoch_name = train_model(self.clf, loss, optimizer, epochs, early_stop, self.data_loader, fold, fout, self.device, self.verbose)
             fout.close()
