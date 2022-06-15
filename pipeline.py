@@ -5,7 +5,7 @@ import typer
 from src.utils.file_helper import read_yaml
 from src.data_prep import main_prep
 from src.data_train import main_train
-from src.data_score import main_score
+from src.data_eval import main_eval
 
 
 app = typer.Typer(add_completion=False)
@@ -40,17 +40,17 @@ def train_model(
 
 
 @app.command()
-def score_model(
+def eval_model(
     config: str
 ) -> None:
-    """Score model on test dataset
+    """Evaluate model on test dataset
 
     Args:
         config (str): Full path to configuration (yaml) file
     """
 
     conf_dict = read_yaml(config)
-    main_score(conf_dict)
+    main_eval(conf_dict)
 
 
 if __name__ == "__main__":

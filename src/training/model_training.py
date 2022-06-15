@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import _io
 import copy
 import numpy as np
 import os
@@ -9,9 +10,40 @@ import torch.nn as nn
 
 from collections import deque
 from sklearn.metrics import roc_auc_score
+from typing import Any, Dict, Tuple, Union
 
 
-def train_model(model, loss, optimizer, epochs, early_stop, data_loader, k, f, device, verbose):
+def train_model(
+    model: Any,
+    loss: nn.modules.loss,
+    optimizer: torch.optim,
+    epochs: int,
+    early_stop: Union[int, bool],
+    data_loader: Dict[str, torch.utils.data.dataloader.DataLoader],
+    k: int,
+    f: _io.TextIOWrapper,
+    device: torch.device,
+    rs: int,
+    verbose: bool
+) -> Tuple[Any, deque]:
+    """Train model on training dataset and save model state
+
+    Args:
+        model (Any): _description_
+        loss (nn.modules.loss): Loss function
+        optimizer (torch.optim): Optimizer function
+        epochs (int): Number of epochs to train model
+        early_stop (Union[int, bool]): Apply early stopping boolean
+        data_loader (Dict[str, torch.utils.data.dataloader.DataLoader]): Train and val datasets DataLoader
+        k (int): Fold number
+        f (_io.TextIOWrapper): Opened output file
+        device (torch.device): Device to train model on
+        rs (int): Random state number
+        verbose (bool): Detailed output boolean
+
+    Returns:
+        Tuple[Any, collections.deque]: Trained model and best model name tuple
+    """
 
     #Initialising variables
     pkl_queue = deque()
@@ -22,6 +54,8 @@ def train_model(model, loss, optimizer, epochs, early_stop, data_loader, k, f, d
     since = time.time()
     end = time.time()
     no_improve = 0
+
+    torch.manual_seed(rs)
 
     if not early_stop:
         early_stop = epochs
@@ -54,7 +88,7 @@ def train_model(model, loss, optimizer, epochs, early_stop, data_loader, k, f, d
             truths, preds = [], []
 
             #Looping over the minibatches
-            for idx, (data_train, target_train, name) in enumerate(data):
+            for data_train, target_train, _ in data:
                 optimizer.zero_grad()
                 x, y = data_train.to(device), target_train.to(device)
 

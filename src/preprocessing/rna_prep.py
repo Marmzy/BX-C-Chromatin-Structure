@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
-from sys import modules
 import numpy as np
 import pandas as pd
+
+from sys import modules
 
 def rna_overview(
     df: pd.DataFrame,

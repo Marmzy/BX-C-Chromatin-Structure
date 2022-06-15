@@ -18,4 +18,5 @@ pipeline:
   cv: 5
   split:
     test: 0.2
+random_state: 2
 verbose: True

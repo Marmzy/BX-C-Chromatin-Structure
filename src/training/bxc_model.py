@@ -12,6 +12,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import PredefinedSplit
 from skopt import BayesSearchCV
+from src.evaluating.predict import predict
 from src.training.cnn import CustomCNN1
 from src.training.image_data import BXCDataset, get_image_mean, get_weights
 from src.training.model_training import train_model
@@ -45,6 +46,7 @@ class BXCModel():
         self.type = get_config_val(self.yaml, ["model", "type"])
         self.target = get_config_val(self.yaml, ["model", "target"])
         self.interpol = get_config_val(self.yaml, ["data", "interpolate"])
+        self.rs = get_config_val(self.yaml, ["random_state"])
         self.verbose = get_config_val(self.yaml, ["verbose"])
 
     def create_clf(
@@ -58,12 +60,14 @@ class BXCModel():
             self.clf = CustomCNN1().to(self.device)
 
     def load_test(
-        self
+        self,
+        fold: int
     ) -> None:
-        """Load test datasets"""
-
-        if self.verbose:
-                print(f"Loading test data...")
+        """Load test datasets
+        
+        Args:
+            fold (int): K-fold number
+        """
 
         if self.interpol:
             suffix = "_interpolate"
@@ -78,8 +82,30 @@ class BXCModel():
             with open(y_test_path) as f:
                 self.y_test = pd.Series([line.rstrip() for line in f], index=self.X_test.index)
         else:
-            X_test_path = check_file(os.path.join(self.path, f"test/{self.type}/{self.target}/X_test{suffix}.npy"))
-            y_test_path = check_file(os.path.join(self.path, f"test/{self.type}/{self.target}/y_test{suffix}.npy"))
+            #Specifying the training datasets
+            X_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/X_train{suffix}_{str(fold)}.txt"))
+            y_train_path = check_file(os.path.join(self.path, f"train/{self.type}/{self.target}/y_train{suffix}_{str(fold)}.txt"))
+
+            #Specifying the training datasets
+            X_test_path = check_file(os.path.join(self.path, f"test/{self.type}/{self.target}/X_test{suffix}.txt"))
+            y_test_path = check_file(os.path.join(self.path, f"test/{self.type}/{self.target}/y_test{suffix}.txt"))
+
+            #Getting the mean and standard deviation of our dataset
+            batch_size = get_config_val(self.yaml, ["model", "params", "batch"])
+            img_mean, img_std = get_image_mean(X_train_path, y_train_path, batch_size)
+            
+            #Defining image transformation techniques to apply
+            image_transform = {
+                "test": transforms.Compose([
+                    transforms.Resize((224, 224)),
+                    transforms.ToTensor(),
+                    transforms.Normalize((img_mean), (img_std)),
+                ])
+            }
+
+            #Creating the test dataset
+            bxc_test = BXCDataset(X_test_path, y_test_path, image_transform["test"])
+            self.data_loader_test = {"test": DataLoader(bxc_test, batch_size=batch_size, shuffle=True, pin_memory=True)}
 
     def load_train_val(
         self,
@@ -149,7 +175,7 @@ class BXCModel():
                 ])
             }
 
-            #Creating the training dataset
+            #Creating the training and validation datasets
             bxc_train = BXCDataset(X_train_path, y_train_path, image_transform["train"])
             bxc_val = BXCDataset(X_val_path, y_val_path, image_transform["val"])
 
@@ -182,6 +208,26 @@ class BXCModel():
                 print("ROC-AUC score for fold {}: {:.6f}".format(fold, roc_auc_score(self.y_test, y_pred, average="macro")), file=out_f)
                 return (self.y_test, pd.Series(y_pred, index=self.y_test.index))
 
+        else:
+
+            #Initialising variables
+            batch_size = get_config_val(self.yaml, ["model", "params", "batch"])
+            decay = get_config_val(self.yaml, ["model", "params", "decay"])
+            epochs = get_config_val(self.yaml, ["model", "params", "epochs"])
+            lr = get_config_val(self.yaml, ["model", "params","lr"])
+            suffix = ""
+            if self.interpol:
+                suffix = "_interpolate"
+
+            #Settings for training the model
+            fout = self.model + suffix + f"_lr{lr}_decay{decay}_epochs{epochs}_batch{batch_size}_scores.txt"
+            fout = open(check_path(os.path.join(self.path, f"output/{self.model.lower()}{suffix}/{self.target}/{fout}")), "a")
+
+            #Making predictions with the trained model on the test dataset
+            y_true, y_pred = predict(self.trained_model, self.data_loader_test, fout, fold, self.device, self.rs, self.verbose)
+            fout.close()
+            return y_true, y_pred
+
     def train(
         self,
         fold: int,
@@ -205,7 +251,7 @@ class BXCModel():
 
             #Tuning hyperparameters on the validation dataset
             print("Training the model and optimising hyperparameters...")
-            opt = BayesSearchCV(self.clf, param_grid, scoring="roc_auc", cv=ps, n_jobs=-1, random_state=0)
+            opt = BayesSearchCV(self.clf, param_grid, scoring="roc_auc", cv=ps, n_jobs=-1, random_state=self.rs)
             opt.fit(self.X_train_val, self.y_train_val)
 
             if self.verbose:
@@ -243,5 +289,5 @@ class BXCModel():
             optimizer = optim.AdamW(self.clf.parameters(), lr=lr, weight_decay=decay)
 
             #Training the model
-            self.trained_model, self.epoch_name = train_model(self.clf, loss, optimizer, epochs, early_stop, self.data_loader, fold, fout, self.device, self.verbose)
+            self.trained_model, self.epoch_name = train_model(self.clf, loss, optimizer, epochs, early_stop, self.data_loader, fold, fout, self.device, self.rs, self.verbose)
             fout.close()

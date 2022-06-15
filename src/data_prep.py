@@ -35,6 +35,7 @@ def main_prep(
     model_type = get_config_val(conf_dict, ["model", "type"])
     pairwise = {}
     path = get_path()
+    rs = get_config_val(conf_dict, ["random_state"])
     target = get_config_val(conf_dict, ["model", "target"])
     verbose =  get_config_val(conf_dict, ["verbose"])
 
@@ -104,14 +105,14 @@ def main_prep(
 
     #Splitting the data into (temporary) train and test
     test = get_config_val(conf_dict, ["pipeline", "split", "test"])
-    X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=test, stratify=y)
+    X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=test, stratify=y, random_state=rs)
 
     if verbose:
         print("\nSplitting the dataset and into train ({}%) and test ({}%)...".format(str(int((1-float(test))*100)), str(int(float(test)*100))))
 
     #Splitting the temporary training dataset into K training and validation datasets
     kfold = get_config_val(conf_dict, ["pipeline", "cv"])
-    skf = StratifiedKFold(n_splits=kfold, shuffle=True)
+    skf = StratifiedKFold(n_splits=kfold, shuffle=True, random_state=rs)
 
     if verbose:
         print("\nSplitting the temporary training dataset into {} folds...".format(kfold))
@@ -158,7 +159,7 @@ def main_prep(
     else:
         test_paths = [os.path.join(path, f"data/raw/images/{image_dir}/{key}.png") for key in X_test]
         np.savetxt(check_path(os.path.join(path, data_dir, "test/{}/{}/X_test{}.txt".format(model_type, target, suffix, idx))), np.array(test_paths), fmt='%s')
-        np.savetxt(check_path(os.path.join(path, data_dir, "test/{}/{}/y_test{}.test".format(model_type, target, suffix))), y_test, fmt='%s')
+        np.savetxt(check_path(os.path.join(path, data_dir, "test/{}/{}/y_test{}.txt".format(model_type, target, suffix))), y_test, fmt='%s')
 
     if verbose:
         print("\nSaved the training datasets to: {}".format(os.path.join(path, data_dir, "train")))
