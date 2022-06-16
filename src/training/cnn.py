@@ -89,3 +89,43 @@ class CustomCNN1(nn.Module) :
         h6 = torch.flatten(h5, 1)           # [batch_size, 96800])
         h7 = self.l1(h6)                    # [batch_size, 1])
         return h7
+
+
+#Defining the structure of the custom Convolutional Neural Network
+class CustomCNN2(nn.Module) :
+    """Rajpurkar et al. custom CNN
+
+    Args:
+        nn (type): Base class for all neural network modules
+    """
+
+    def __init__(
+        self
+    ) -> None:
+        """Initialization of network modules"""
+
+        super().__init__()
+
+
+        self.baseblock0 = BaseBlock(3, 32, "same")
+        self.l1 = nn.Linear(430592, 1)
+
+    def forward(
+        self,
+        x: torch.Tensor
+    ) -> torch.Tensor:
+        """Defining network structure
+
+        Args:
+            x (torch.Tensor): Input tensor
+
+        Returns:
+            torch.Tensor: Output tensor
+        """
+
+        h1 = F.pad(x, pad=(4, 4, 4, 4))     # [batch_size, 3, 232, 232]
+        h2 = self.baseblock0(h1)            # [batch_size, 32, 232, 232]
+        h3 = F.max_pool2d(h2, 2)            # [batch_size, 32, 116, 116]
+        h4 = torch.flatten(h3, 1)           # [batch_size, 430592])
+        h5 = self.l1(h4)                    # [batch_size, 1])
+        return h5
