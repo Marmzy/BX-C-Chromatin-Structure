@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 #Defining the layers that constitute the basic structure of the base block
 class BaseBlock(nn.Module):
-    """Basic block that consitute the Rajpurkar et al. custom CNN
+    """Basic block that consitute the Rajpurkar et al. custom CNN 1
 
     Args:
         nn (type): Base class for all neural network modules
@@ -50,7 +50,7 @@ class BaseBlock(nn.Module):
 
 #Defining the structure of the custom Convolutional Neural Network
 class CustomCNN1(nn.Module) :
-    """Rajpurkar et al. custom CNN
+    """Rajpurkar et al. custom CNN 2
 
     Args:
         nn (type): Base class for all neural network modules
@@ -62,7 +62,6 @@ class CustomCNN1(nn.Module) :
         """Initialization of network modules"""
 
         super().__init__()
-
 
         self.baseblock0 = BaseBlock(3, 32, "same")
         self.baseblock1 = BaseBlock(32, 32, "valid")

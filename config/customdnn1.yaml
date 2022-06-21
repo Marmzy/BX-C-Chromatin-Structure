@@ -1,0 +1,22 @@
+data:
+  dirname: "data"
+  download: False
+  visualise: False
+  cutoff: 0.75
+  interpolate: False
+model:
+  target: "Abd-A" #Abd-A, Abd-B, Ubx
+  type: "deep"
+  name: "CustomDNN1"
+  params:
+    batch: 16
+    lr: 0.00005
+    decay: 0.0001
+    epochs: 1000
+  early_stop: 10 #False, int
+pipeline:
+  cv: 5
+  split:
+    test: 0.2
+random_state: 2
+verbose: True
