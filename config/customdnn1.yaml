@@ -1,19 +1,20 @@
 data:
+  cutoff: 0.75
   dirname: "data"
   download: False
-  visualise: False
-  cutoff: 0.75
   interpolate: False
+  visualise: False
 model:
-  target: "Abd-A" #Abd-A, Abd-B, Ubx
-  type: "deep"
+  early_stop: 10 #False, int
+  layers: [20, 10]
   name: "CustomDNN1"
   params:
     batch: 16
     lr: 0.00005
     decay: 0.0001
     epochs: 1000
-  early_stop: 10 #False, int
+  target: "Abd-A" #Abd-A, Abd-B, Ubx
+  type: "deep"
 pipeline:
   cv: 5
   split:

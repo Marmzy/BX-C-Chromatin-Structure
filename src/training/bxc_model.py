@@ -14,7 +14,7 @@ from sklearn.model_selection import PredefinedSplit
 from skopt import BayesSearchCV
 from src.evaluating.predict import predict
 from src.training.cnn import CustomCNN1, CustomCNN2
-from src.training.dnn import CustomDNN1
+from src.training.dnn import CustomDNN
 from src.training.image_data import BXCDataset, get_image_mean, get_weights
 from src.training.model_training import train_model
 from src.utils.file_helper import check_file, check_path
@@ -61,8 +61,8 @@ class BXCModel():
             self.clf = CustomCNN1().to(self.device)
         elif self.model == "CustomCNN2":
             self.clf = CustomCNN2().to(self.device)
-        elif self.model == "CustomDNN1":
-            self.clf = CustomDNN1().to(self.device)
+        elif "CustomDNN" in self.model:
+            self.clf = CustomDNN(get_config_val(self.yaml, ["model", "layers"])).to(self.device)
 
     def load_test(
         self,

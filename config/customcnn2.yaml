@@ -1,19 +1,19 @@
 data:
+  cutoff: 0.75
   dirname: "data"
   download: False
-  visualise: False
-  cutoff: 0.75
   interpolate: False
+  visualise: False
 model:
-  target: "Abd-A" #Abd-A, Abd-B, Ubx
-  type: "deep"
+  early_stop: 10 #False, int
   name: "CustomCNN2"
   params:
     batch: 64
     lr: 0.00001
     decay: 0.000005
     epochs: 500
-  early_stop: 10 #False, int
+  target: "Abd-A" #Abd-A, Abd-B, Ubx
+  type: "deep"
 pipeline:
   cv: 5
   split: 
