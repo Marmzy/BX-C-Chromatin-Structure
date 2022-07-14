@@ -1,0 +1,22 @@
+data:
+  cutoff: 0.75
+  dirname: "data"
+  download: False
+  interpolate: True
+  visualise: False
+model:
+  early_stop: 10 #False, int
+  name: "resnet50"
+  params:
+    batch: 16
+    lr: 0.00001
+    decay: 0.000005
+    epochs: 500
+  target: "Abd-A" #Abd-A, Abd-B, Ubx
+  type: "deep"
+pipeline:
+  cv: 5
+  split:
+    test: 0.2
+random_state: 2
+verbose: True

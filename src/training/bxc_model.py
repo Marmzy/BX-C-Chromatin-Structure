@@ -6,6 +6,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torchvision.models as models
 import torchvision.transforms as transforms
 
 from sklearn.ensemble import RandomForestClassifier
@@ -55,7 +56,13 @@ class BXCModel():
     ) -> None:
         """Load model classifier"""
 
-        if self.model == "RandomForest":
+        if self.model in models.__dict__.keys():
+            self.clf = models.__dict__[self.model](pretrained=True).to(self.device)
+            if "vgg" in self.model:
+                self.clf.classifier[6] = nn.Linear(self.clf.classifier[6].in_features, 1).to(self.device)
+            elif "resnet" in self.model:
+                self.clf.fc = nn.Linear(self.clf.fc.in_features, 1).to(self.device)
+        elif self.model == "RandomForest":
             self.clf = RandomForestClassifier(class_weight="balanced")
         elif self.model == "CustomCNN1":
             self.clf = CustomCNN1().to(self.device)
