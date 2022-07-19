@@ -50,7 +50,7 @@ class BaseBlock(nn.Module):
 
 #Defining the structure of the custom Convolutional Neural Network
 class CustomCNN1(nn.Module) :
-    """Rajpurkar et al. custom CNN 2
+    """Rajpurkar et al. custom CNN 1
 
     Args:
         nn (type): Base class for all neural network modules
@@ -92,7 +92,7 @@ class CustomCNN1(nn.Module) :
 
 #Defining the structure of the custom Convolutional Neural Network
 class CustomCNN2(nn.Module) :
-    """Rajpurkar et al. custom CNN
+    """Rajpurkar et al. custom CNN 2
 
     Args:
         nn (type): Base class for all neural network modules

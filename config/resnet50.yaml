@@ -2,7 +2,7 @@ data:
   cutoff: 0.75
   dirname: "data"
   download: False
-  interpolate: True
+  interpolate: False
   visualise: False
 model:
   early_stop: 10 #False, int
