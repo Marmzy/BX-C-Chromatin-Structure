@@ -55,7 +55,12 @@ Providing the command "prep-data" to [`pipeline.py`](https://github.com/Marmzy/B
 this way and analysis speed is shortened due to fewer data being used.
 - Number of cross-validation folds is reduced from 10 to 5, to speed up the analysis. The goal of this project is to reproduce the analysis and not to try and
 train a better model.
-- Both interpolated and non-interpolated datasets were created. If I'm not mistaken, Rajpurkar et al. only used interpolated data.
+- Both interpolated and non-interpolated datasets were created. If I'm not mistaken, Rajpurkar et al. only used interpolated data
+
+
+| Interpolated | Non-interpolated |
+| --- | --- |
+| ![interpolated](https://github.com/Marmzy/BX-C_Chromatin_Structure/blob/master/data/raw/images/interpolate/A_2.png) | ![missing](https://github.com/Marmzy/BX-C_Chromatin_Structure/blob/master/data/raw/images/missing/A_2.png) |
 
 Example usage:
 ```bash
