@@ -105,13 +105,27 @@ python3 pipeline.py eval-model config/resnet50.yaml
 
 ## Results
 
+Displayed below are the median scores for each target for each trained model for both the interpolated and non-interpolated dataset.
+
 |  | Non-interpolated |  |  | Interpolated |  |  |
-|  | Abd-A | Abd-B | Ubx | Abd-A | Abd-B | Ubx |
-| RandomForest	| 0.541127	| 0.504201	| 0.525039	| 0.568614	| 0.519050	| 0.574500 |
-| CustomCNN1	| 0.698198	| 0.527443	| 0.581100	| 0.704257	| 0.572333	| 0.635181 |
-| CustomCNN2	| 0.672488	| 0.532422	| 0.575862	| 0.703226	| 0.585461	| 0.626362 |
-| CustomDNN1	| 0.696342	| 0.503866	| 0.556272	| 0.658689	| 0.564365	| 0.553744 |
-| CustomDNN2	| 0.712077	| 0.511254	| 0.555584	| 0.699150	| 0.553084	| 0.591043 |
-| CustomDNN3	| 0.677087	| 0.525668	| 0.551286	| 0.700260	| 0.559621	| 0.561398 |
-| VGG16	| 0.727144	| 0.526936	| 0.622388	| 0.704749	| 0.571844	| 0.605690 |
-| ResNet50	| 0.693075	| 0.536171	0.594385	| 0.702100	| 0.555384	0.615282
+| --- | --- | --- | --- | --- | --- | --- |
+|  | **Abd-A** | **Abd-B** | **Ubx** | **Abd-A** | **Abd-B** | **Ubx** |
+| RandomForest | 0.541127 | 0.504201 | 0.525039	| 0.568614 | 0.519050	| 0.574500 |
+| CustomCNN1 | 0.698198 | 0.527443 | 0.581100	| 0.704257 | 0.572333	| **0.635181** |
+| CustomCNN2 | 0.672488 | 0.532422 | 0.575862	| 0.703226 | **0.585461**	| 0.626362 |
+| CustomDNN1 | 0.696342 | 0.503866 | 0.556272	| 0.658689 | 0.564365	| 0.553744 |
+| CustomDNN2 | 0.712077 | 0.511254 | 0.555584	| 0.699150 | 0.553084	| 0.591043 |
+| CustomDNN3 | 0.677087 | 0.525668 | 0.551286 | 0.700260 | 0.559621	| 0.561398 |
+| VGG16 | **0.727144** | 0.526936	| **0.622388** | **0.704749** | 0.571844 | 0.605690 |
+| ResNet50 | 0.693075 | **0.536171** | 0.594385 | 0.702100 | 0.555384 | 0.615282 |
+
+From the table above we can see that using pre-trained models was beneficial for all non-interpolated target genes and even gene Abd-A, when using interpolated
+data. In addition to this, models trained with interpolated data generally have higher ROC-AUC scores on the test dataset.
+
+Comparison of our results with those of Rajpurkar et al. is difficult for several reasons. Not only is there a likely discrepancy in data pre-processing, fewer
+images were used for training (cut-off: 0.50 -> 0.75), we also don't have the ROC-AUC scores of all trained models on the test dataset. The best ROC-AUC value
+obtained by Rajpurkar et al. is likely 0.66, as displayed in Fig 1d. If we compare this value (0.66) obtained for target gene Abd-A with our best value (0.72), it seems that we managed to get a better model. Though again, comparing results isn't really possible.
+
+---
+
+<sup>1</sup>: Rajpurkar, A.R., Mateo, L.J., Murphy, S.E. et al. Deep learning connects DNA traces to transcription to reveal predictive features beyond enhancer–promoter contact. Nat Commun 12, 3423 (2021).
