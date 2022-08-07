@@ -2,7 +2,7 @@
 
 This project came about when I found an article by [Rajpurkar et al](https://www.nature.com/articles/s41467-021-23831-4#Sec2)<sup>1</sup>.
 In the first part of this article the researchers train a model to predict RNA expression for 3 genes of the Bithorax complex (BX-C) in *D. melanogaster*, using
-only 3D chromatin information. The data used seemed really challening and interesting to work with, and because I wondered why the researchers didn't use any
+only 3D chromatin information. The data used seemed really challenging and interesting to work with, and because I wondered why the researchers didn't use any
 pretrained CNN models for transfer learning, I chose to reproduce the first part of the research. I tried to stick as close as possible to the analysis, but
 for various reasons I made some slight modifications, which I will discuss in the sections below.
 
