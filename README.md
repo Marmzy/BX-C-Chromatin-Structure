@@ -10,8 +10,7 @@ for various reasons I made some slight modifications, which I will discuss in th
 
 The analysis can be run by providing [`pipeline.py`](https://github.com/Marmzy/BX-C_Chromatin_Structure/blob/master/pipeline.py) a command and an input
 [.yaml file](https://github.com/Marmzy/BX-C_Chromatin_Structure/tree/master/config). As data preprocessing wasn't discussed in depth in the article, I tried
-to infer it through the images in the article and by looking at the source code, though it was difficult to understand at times. Combined with my guess that the
-input data has changed, this means that I probably didn't replicate data preprocessing to a T.
+to infer it through the images in the article and by looking at the source code, though it was difficult to understand at times. This, combined with my guess that the input data has changed, means that data preprocessinghas changed a bit in comparison to the article.
 
 Explanation of the .yaml file parameters:
 
